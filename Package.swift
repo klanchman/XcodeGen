@@ -41,7 +41,7 @@ let package = Package(
             .product(name: "PathKit", package: "PathKit"),
             "XcodeGenCore",
         ], resources: [
-            .copy("SettingPresets")
+            .copy("Resources/SettingPresets")
         ]),
         .target(name: "ProjectSpec", dependencies: [
             .product(name: "JSONUtilities", package: "JSONUtilities"),

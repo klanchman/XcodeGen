@@ -41,40 +41,40 @@ extension Project {
 
     public func getTargetBuildSettings(target: Target, config: Config) -> BuildSettings {
         var buildSettings = BuildSettings()
-        
+
         // list of supported destination sorted by priority
         let specSupportedDestinations = target.supportedDestinations?.sorted(by: { $0.priority < $1.priority }) ?? []
-        
+
         if options.settingPresets.applyTarget {
             let platform: Platform
-            
+
             if target.platform == .auto,
                let firstDestination = specSupportedDestinations.first,
                let firstDestinationPlatform = Platform(rawValue: firstDestination.rawValue) {
-                
+
                 platform = firstDestinationPlatform
             } else {
                 platform = target.platform
             }
-            
+
             buildSettings += SettingsPresetFile.platform(platform).getBuildSettings()
             buildSettings += SettingsPresetFile.product(target.type).getBuildSettings()
             buildSettings += SettingsPresetFile.productPlatform(target.type, platform).getBuildSettings()
-            
+
             if target.platform == .auto {
                 // this fix is necessary because the platform preset overrides the original value
                 buildSettings["SDKROOT"] = Platform.auto.rawValue
             }
         }
-        
+
         if !specSupportedDestinations.isEmpty {
             var supportedPlatforms: [String] = []
             var targetedDeviceFamily: [String] = []
-            
+
             for supportedDestination in specSupportedDestinations {
                 let supportedPlatformBuildSettings = SettingsPresetFile.supportedDestination(supportedDestination).getBuildSettings()
                 buildSettings += supportedPlatformBuildSettings
-                
+
                 if let value = supportedPlatformBuildSettings?["SUPPORTED_PLATFORMS"] as? String {
                     supportedPlatforms += value.components(separatedBy: " ")
                 }
@@ -82,11 +82,11 @@ extension Project {
                     targetedDeviceFamily += value.components(separatedBy: ",")
                 }
             }
-            
+
             buildSettings["SUPPORTED_PLATFORMS"] = supportedPlatforms.joined(separator: " ")
             buildSettings["TARGETED_DEVICE_FAMILY"] = targetedDeviceFamily.joined(separator: ",")
         }
-        
+
         // apply custom platform version
         if let version = target.deploymentTarget {
             if !specSupportedDestinations.isEmpty {
@@ -231,27 +231,11 @@ extension SettingsPresetFile {
         if let cached = settingPresetSettings[path] {
             return cached.value
         }
-        let bundlePath = Path(Bundle.main.bundlePath)
+        let bundlePath = Path(Bundle.module.bundlePath)
         let relativePath = Path("SettingPresets/\(path).yml")
-        var possibleSettingsPaths: [Path] = [
-            relativePath,
+        let possibleSettingsPaths: [Path] = [
             bundlePath + relativePath,
-            bundlePath + "../share/xcodegen/\(relativePath)",
-            Path(#file).parent().parent().parent() + relativePath,
         ]
-
-        if let resourcePath = Bundle.main.resourcePath {
-            possibleSettingsPaths.append(Path(resourcePath) + relativePath)
-        }
-
-        if let symlink = try? (bundlePath + "xcodegen").symlinkDestination() {
-            possibleSettingsPaths = [
-                symlink.parent() + relativePath,
-            ] + possibleSettingsPaths
-        }
-        if let moduleResourcePath = Bundle.availableModule?.path(forResource: "SettingPresets", ofType: nil) {
-            possibleSettingsPaths.append(Path(moduleResourcePath) + "\(path).yml")
-        }
 
         guard let settingsPath = possibleSettingsPaths.first(where: { $0.exists }) else {
             switch self {
